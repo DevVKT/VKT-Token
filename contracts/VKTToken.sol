@@ -7,28 +7,30 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 
 import "./MintableToken.sol";
+import "./BlackLists.sol";
 
-contract VKTToken is ERC20, ERC20Burnable, Pausable, MintableToken, AccessControl, ERC20Permit {
+contract VKTToken is ERC20, ERC20Burnable, Pausable, MintableToken, AccessControl, Blacklist, ERC20Permit {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-    
+
     constructor() ERC20("VirtualK-Pop", "VKT") ERC20Permit("VirtualK-Pop") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
+        _grantRole(OPERATOR_ROLE, msg.sender);
         _mint(msg.sender, 20000000000 * 10 ** decimals());
         _grantRole(MINTER_ROLE, msg.sender);
     }
 
-    function pause() public onlyRole(PAUSER_ROLE) {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    function unpause() public onlyRole(PAUSER_ROLE) {
+    function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
 
-    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) canMint {
+    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) canMint {
         _mint(to, amount);
     }
 
@@ -40,22 +42,28 @@ contract VKTToken is ERC20, ERC20Burnable, Pausable, MintableToken, AccessContro
         super._beforeTokenTransfer(from, to, amount);
     }
 
-    function forceRevertToken(address from, uint256 amount) public onlyRole(OPERATOR_ROLE) returns (bool)
-    {
-        _approve(from, _msgSender(), amount);
-        transferFrom(from, _msgSender(), amount);
-
-        return true;
+    function transfer(address _to, uint256 _value) public isLocked override returns (bool) {
+        return super.transfer(_to, _value);
     }
 
-    function resumeMinting() public onlyRole(MINTER_ROLE) virtual override returns (bool)
-    { 
+    function transferFrom(address _from, address _to, uint256 _value) public isLocked override returns (bool) {
+        return super.transferFrom(_from, _to, _value);
+    }
+
+    function lockAddress(address _villain) public onlyRole(OPERATOR_ROLE) override {
+        super.lockAddress(_villain);
+    }
+
+    function unlockAddress(address _villain) public onlyRole(OPERATOR_ROLE) override {
+        super.unlockAddress(_villain);
+    }
+
+    function resumeMinting() public cantMint onlyRole(MINTER_ROLE) override returns (bool) {
         super.resumeMinting();
         return true;
     }
 
-    function finishMinting() public canMint onlyRole(MINTER_ROLE) virtual override returns (bool)
-    {
+    function finishMinting() public canMint onlyRole(MINTER_ROLE) override returns (bool) {
         super.finishMinting();
         return true;
     }

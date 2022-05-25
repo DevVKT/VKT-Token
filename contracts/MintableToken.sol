@@ -14,10 +14,8 @@ abstract contract MintableToken {
 
     bool public mintingFinished = false;
 
-    modifier canMint() {
-        require(!mintingFinished, "Close token mint");
-        _;
-    }
+    modifier canMint() { require(!mintingFinished); _; }
+    modifier cantMint() { require(mintingFinished); _; }
 
     /**
      * @dev Function to stop minting new tokens.
